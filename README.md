@@ -1,64 +1,116 @@
-# ⏰🧠 Temporal MCP
+# ⏰🧠 Temporal-MCP Server
 
-> **Empowering AI with Workflow Orchestration**
+Temporal MCP is an MCP server that bridges AI assistants (like Claude) and Temporal workflows. It turns complex backend orchestration into simple, chat-driven commands. Imagine triggering stateful processes without writing a line of glue code. Temporal-MCP makes that possible.
 
-Temporal MCP is a bridge connecting AI assistants like Claude with the powerful Temporal workflow engine. By implementing the Model Context Protocol (MCP), it allows AI assistants to discover, execute, and monitor complex workflow orchestrations—all through natural language conversations.
+## Why Temporal MCP
 
-## ✨ What Can It Do?
+- **Supercharged AI** — AI assistants gain reliable, long-running workflow superpowers
+- **Conversational Orchestration** — Trigger, monitor, and manage workflows through natural language
+- **Enterprise-Ready** — Leverage Temporal's retries, timeouts, and persistence—exposed in plain text
 
-Temporal MCP transforms how your AI assistants interact with your backend systems:
+## ✨ Key Features
 
-- **🔍 Automatic Discovery** — AI assistants can explore available workflows and their capabilities
-- **🏃‍♂️ Seamless Execution** — Execute complex workflows with parameters through natural conversations
-- **📊 Real-time Monitoring** — Check status of running workflows and get updates
-- **⚡ Performance Optimization** — Smart caching of results for faster responses
-- **🧠 AI-friendly Descriptions** — Rich metadata helps AI understand workflow purposes and operations
-
-### Why Temporal MCP Exists
-
-AI assistants are powerful for generating content and reasoning, but they lack the ability to execute complex workflows or maintain state across long-running operations. Temporal provides robust workflow orchestration with reliability features like retries, timeouts, and failover mechanisms. By connecting these systems:
-
-- **AI assistants gain workflow superpowers** - Execute complex business processes, data pipelines, and service orchestrations
-- **Temporal workflows become conversational** - Trigger and monitor workflows through natural language
-- **Enterprise systems become AI-accessible** - Expose existing workflow infrastructure to AI assistants without rebuilding
+- **🔍 Automatic Discovery** — Explore available workflows and see rich metadata
+- **🏃‍♂️ Seamless Execution** — Kick off complex processes with a single chat message
+- **📊 Real-time Monitoring** — Follow progress, check status, and get live updates
+- **⚡ Performance Optimization** — Smart caching for instant answers
+- **🧠 AI-Friendly Descriptions** — Purpose fields written for both humans and machines
 
 ## 🏁 Getting Started
 
 ### Prerequisites
 
-Before you dive in, make sure you have:
-
 - **Go 1.21+** — For building and running the MCP server
 - **Temporal Server** — Running locally or remotely (see [Temporal docs](https://docs.temporal.io/docs/server/quick-install/))
 
-### Installation
+### Quick Install
 
-Let's get you up and running in just a few minutes:
+1. Run your Temporal server and workers
+In this example, we'll use the [Temporal Money Transfer Demo](https://github.com/temporal-sa/money-transfer-demo/tree/main).
 
-1. **Clone the repository**
+
+#### MCP Setup
+Get Claude (or similar MCP-enabled AI assistant) talking to your workflows in 5 easy steps:
+
+2. **Build the server**
 ```bash
-git clone https://github.com/yourusername/temporal-mcp.git
+git clone https://github.com/Mocksi/temporal-mcp.git
 cd temporal-mcp
-```
-
-2. **Build the project**
-```bash
 make build
 ```
 
-3. **Configure your workflows**
-Copy the sample config and customize it for your environment:
-```bash
-cp config.sample.yml config.yml
-# Edit config.yml with your favorite editor
+2. **Define your workflows** in `config.yml`
+The sample configuration (`config.sample.yml`) is designed to work with the [Temporal Money Transfer Demo](https://github.com/temporal-sa/money-transfer-demo/tree/main):
+
+```yaml
+workflows:
+  AccountTransferWorkflow:
+    purpose: "Transfers money between accounts with validation and notification. Handles the happy path scenario where everything works as expected."
+    input:
+      type: "TransferInput"
+      fields:
+        - from_account: "Source account ID"
+        - to_account: "Destination account ID"
+        - amount: "Amount to transfer"
+    output:
+      type: "TransferOutput"
+      description: "Transfer confirmation with charge ID"
+    taskQueue: "account-transfer-queue"
+
+  AccountTransferWorkflowScenarios:
+    purpose: "Extended account transfer workflow with various scenarios including human approval, recoverable failures, and advanced visibility features."
+    input:
+      type: "TransferInput"
+      fields:
+        - from_account: "Source account ID"
+        - to_account: "Destination account ID"
+        - amount: "Amount to transfer"
+        - scenario_type: "Type of scenario to execute (human_approval, recoverable_failure, advanced_visibility)"
+    output:
+      type: "TransferOutput"
+      description: "Transfer confirmation with charge ID"
+    taskQueue: "account-transfer-queue"
 ```
 
-4. **Launch the server**
+3. **Generate Claude's configuration**
 ```bash
-./bin/temporal-mcp --config ./config.yml
+cd examples
+./generate_claude_config.sh
 ```
 
-> 💡 **Tip:** For development, you can use `make run` to build and run in one step!
+4. **Install the configuration**
+```bash
+cp examples/claude_config.json ~/Library/Application\ Support/Claude/claude_desktop_config.json
+```
+
+5. **Start Claude** with this configuration
+
+### Conversing with Your Workflows
+
+Now for the magic part! Talk to your workflows through Claude using natural language:
+
+> 💬 "Claude, can you transfer $100 from account ABC123 to account XYZ789?"
+
+> 💬 "What transfer scenarios are available to test?"
+
+> 💬 "Execute a transfer that requires human approval for $500 between accounts ABC123 and XYZ789"
+
+> 💬 "Has the transfer workflow completed yet?"
+
+> 💬 "Run a transfer scenario with recoverable failures to test error handling"
+
+Behind the scenes, Temporal MCP translates these natural language requests into properly formatted workflow executions—no more complex API calls or parameter formatting!
+
+## Core Values
+
+1. **Clarity First** — Use simple, direct language. Avoid jargon.
+2. **Benefit-Driven** — Lead with "what's in it for me".
+3. **Concise Power** — Less is more—keep sentences tight and memorable.
+4. **Personality & Voice** — Bold statements, short lines, a dash of excitement.
+
+## Ready to Showcase
+
+Lights, camera, action—capture your first AI-driven workflow in motion. Share that moment. Inspire others to see Temporal MCP in action.
 
 ## Development
 
@@ -102,70 +154,9 @@ cp config.sample.yml config.yml
 - ✓ Verify claude_config.json is in the correct location
 - ✓ Restart Claude after configuration changes
 
-## 📜 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🤖 Using with AI Assistants
-
-One of the most exciting features of Temporal MCP is how it bridges the gap between natural language and complex workflow orchestration using the [Model Context Protocol (MCP)](https://github.com/anthropics/anthropic-cookbook/tree/main/mcp).
-
-### Setting Up Claude
-
-Let's get Claude talking to your workflows in 5 easy steps:
-
-1. **Build the server** (if you haven't already)
-```bash
-make build
-```
-
-2. **Define your workflows** in `config.yml`
-Here's an example of a workflow definition that Claude can understand:
-
-```yaml
-workflows:
-  data-processing-workflow:
-    purpose: "Processes data from various sources with configurable parameters."
-    input:
-      type: "DataProcessingRequest"
-      fields:
-        - source_type: "The type of data source to process."
-        - batch_size: "The number of records to process in each batch."
-    output:
-      type: "ProcessingResult"
-      description: "Results of the data processing operation."
-```
-
-3. **Generate Claude's configuration**
-```bash
-cd examples
-./generate_claude_config.sh
-```
-
-4. **Install the configuration**
-```bash
-cp examples/claude_config.json ~/Library/Application\ Support/Claude/claude_desktop_config.json
-```
-
-5. **Start Claude** with this configuration
-
-### Conversing with Your Workflows
-
-Now for the magic part! You can talk to your workflows through Claude using natural language:
-
-> 💬 "Claude, can you run the data processing workflow on the customer database with a batch size of 500?"
-
-> 💬 "What workflows are available for me to use?"
-
-> 💬 "Execute the billing workflow for customer ABC123 with the April invoice data"
-
-> 💬 "Has the daily analytics workflow completed yet?"
-
-Behind the scenes, Temporal MCP translates these natural language requests into properly formatted workflow executions—no more complex API calls or parameter formatting!
-
 ## ⚙️ Configuration
 
-The heart of Temporal MCP is its configuration file, which connects your AI assistants to your workflow engine. Let's break it down:
+The heart of Temporal MCP is its configuration file, which connects your AI assistants to your workflow engine:
 
 ### Configuration Architecture
 
@@ -177,7 +168,7 @@ Your `config.yml` consists of three key sections:
 
 ### Example Configuration
 
-Here's a complete example with annotations to guide you:
+The sample configuration is designed to work with the Temporal Money Transfer Demo:
 
 ```yaml
 # Temporal server connection details
@@ -185,7 +176,7 @@ temporal:
   hostPort: "localhost:7233"       # Your Temporal server address
   namespace: "default"             # Temporal namespace
   environment: "local"             # "local" or "remote"
-  defaultTaskQueue: "executions-task-queue"
+  defaultTaskQueue: "account-transfer-queue"  # Default task queue for workflows
 
   # Fine-tune connection behavior
   timeout: "5s"                    # Connection timeout
@@ -195,31 +186,35 @@ temporal:
     maximumAttempts: 5              # Don't try forever
     backoffCoefficient: 2.0         # Exponential backoff
 
-# Optimize performance with caching
-cache:
-  enabled: true                     # Turn caching on/off
-  databasePath: "./workflow_cache.db"  # Where to store cache
-  ttl: "24h"                       # Cache entries expire after 24h
-  maxCacheSize: 104857600           # 100MB max cache size
-  cleanupInterval: "1h"            # Automatic maintenance
-
 # Define AI-discoverable workflows
 workflows:
-  data-analysis-workflow:           # Workflow ID in kebab-case
-    purpose: "Analyzes a dataset and generates insights with comprehensive error handling and validation. Processes data through extraction, transformation, analysis stages and returns formatted results with visualizations."
-    input:                          # What the workflow needs
-      type: "AnalysisRequest"      # Input type name
-      fields:                       # Required parameters
-        - dataset_id: "ID of the dataset to analyze."
-        - metrics: "List of metrics to compute."
-        - format: "Output format (json, csv, etc)."
-    output:                         # What the workflow returns
-      type: "AnalysisResult"       # Output type name
-      description: "Analysis results with computed metrics and visualizations."
-    taskQueue: "analysis-queue"     # Optional custom task queue
+  AccountTransferWorkflow:
+    purpose: "Transfers money between accounts with validation and notification. Handles the happy path scenario where everything works as expected."
+    workflowIDRecipe: "transfer_{{.from_account}}_{{.to_account}}_{{.amount}}"
+    input:
+      type: "TransferInput"
+      fields:
+        - from_account: "Source account ID"
+        - to_account: "Destination account ID"
+        - amount: "Amount to transfer"
+    output:
+      type: "TransferOutput"
+      description: "Transfer confirmation with charge ID"
+    taskQueue: "account-transfer-queue"
+    activities:
+      - name: "validate"
+        timeout: "5s"
+      - name: "withdraw"
+        timeout: "5s"
+      - name: "deposit"
+        timeout: "5s"
+      - name: "sendNotification"
+        timeout: "5s"
+      - name: "undoWithdraw"
+        timeout: "5s"
 ```
 
-> 💡 **Pro Tip:** Copy `config.sample.yml` as your starting point and customize from there.
+> 💡 **Pro Tip:** The sample configuration is pre-configured to work with the [Temporal Money Transfer Demo](https://github.com/temporal-sa/money-transfer-demo/tree/main). Use it as a starting point for your own workflows.
 
 ## 💎 Best Practices
 
@@ -249,9 +244,9 @@ The `purpose` field is your AI assistant's window into understanding what each w
 
 | Item | Convention | Example |
 |------|------------|----------|
-| Workflow IDs | kebab-case | `financial-report-generator` |
-| Parameter names | snake_case | `account_id`, `start_date` |
-| Parameters with units | Include unit | `timeout_seconds`, `batch_size` |
+| Workflow IDs | PascalCase | `AccountTransferWorkflow` |
+| Parameter names | snake_case | `from_account`, `to_account` |
+| Parameters with units | Include unit | `timeout_seconds`, `amount` |
 
 ### Security Guidelines
 
@@ -271,3 +266,17 @@ The `purpose` field is your AI assistant's window into understanding what each w
 3. **Improved Debugging** - Clear descriptions help identify issues when workflows don't behave as expected
 4. **Better Developer Experience** - New team members can understand your system more quickly
 5. **Documentation As Code** - Purpose fields serve as living documentation that stays in sync with the codebase
+
+## Contribute & Collaborate
+
+We're building this together.
+- Share your own workflow configs
+- Improve descriptions
+- Share your demos (video or GIF) in issues
+
+Let's unleash the power of AI and Temporal together!
+
+## 📜 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+Contributions welcome!

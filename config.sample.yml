@@ -3,7 +3,7 @@ temporal:
   hostPort: "localhost:7233"  # Local Temporal server
   namespace: "default"
   environment: "local"        # "local" or "remote"
-  defaultTaskQueue: "default-queue"  # Default task queue for workflows
+  defaultTaskQueue: "account-transfer-queue"  # Default task queue for workflows
 
   # Connection options
   timeout: "5s"
@@ -14,59 +14,60 @@ temporal:
     backoffCoefficient: 2.0
 
 workflows:
-  GreetingWorkflow:
-    purpose: "Sends a personalized greeting to a user."
-    workflowIDRecipe: "greet_{{.name}}_{{.language}}"
+  AccountTransferWorkflow:
+    purpose: "Transfers money between accounts with validation and notification."
+    workflowIDRecipe: "transfer_{{.from_account}}_{{.to_account}}_{{.amount}}"
     input:
-      type: "GreetingRequest"
+      type: "TransferInput"
       fields:
-        - name: "The user's name to greet."
-        - language: "Optional language code for localization."
+        - from_account: "Source account ID"
+        - to_account: "Destination account ID"
+        - amount: "Amount to transfer"
     output:
-      type: "string"
-      description: "The personalized greeting message."
-    taskQueue: "greeting-queue"
+      type: "TransferOutput"
+      description: "Transfer confirmation with charge ID"
+    taskQueue: "account-transfer-queue"
+    activities:
+      - name: "validate"
+        timeout: "5s"
+      - name: "withdraw"
+        timeout: "5s"
+      - name: "deposit"
+        timeout: "5s"
+      - name: "sendNotification"
+        timeout: "5s"
+      - name: "undoWithdraw"
+        timeout: "5s"
 
-  ProcessOrderWorkflow:
-    purpose: "Processes a new e-commerce order."
-    workflowIDRecipe: "orderprocess_{{.order_id}}"
+  AccountTransferWorkflowScenarios:
+    purpose: "Extended account transfer workflow with approval and error handling scenarios."
+    workflowIDRecipe: "transfer_scenario_{{.scenario_type}}_{{.from_account}}_{{.to_account}}"
     input:
-      type: "OrderRequest"
+      type: "TransferInput"
       fields:
-        - order_id: "The unique ID of the order."
-        - customer_id: "The customer's ID."
-        - items: "Array of items in the order."
-        - shipping_address: "The shipping address."
+        - from_account: "Source account ID"
+        - to_account: "Destination account ID"
+        - amount: "Amount to transfer"
     output:
-      type: "OrderConfirmation"
-      description: "Order confirmation with tracking information."
-    taskQueue: "order-queue"
-
-  DataAnalysisWorkflow:
-    purpose: "Analyzes a dataset and generates insights."
-    workflowIDRecipe: "dataanalysis_{{hash .}}"
-    input:
-      type: "AnalysisRequest"
-      fields:
-        - dataset_id: "ID of the dataset to analyze."
-        - metrics: "List of metrics to compute."
-        - format: "Output format (json, csv, etc)."
-    output:
-      type: "AnalysisResult"
-      description: "Analysis results with computed metrics and visualizations."
-    taskQueue: "analysis-queue"
-
-  NotificationWorkflow:
-    purpose: "Sends notifications through various channels."
-    workflowIDRecipe: "send_notification_{{hash .recipient_id .message .channel}}"
-    input:
-      type: "NotificationRequest"
-      fields:
-        - recipient_id: "ID of the notification recipient."
-        - message: "The notification message."
-        - channel: "The notification channel (email, sms, push, etc)."
-        - priority: "Priority level of the notification."
-    output:
-      type: "DeliveryStatus"
-      description: "Status of the notification delivery attempt."
-    taskQueue: "notification-queue"
+      type: "TransferOutput"
+      description: "Transfer confirmation with charge ID"
+    taskQueue: "account-transfer-queue"
+    scenarios:
+      - name: "AccountTransferWorkflowRecoverableFailure"
+        description: "Simulates a recoverable failure scenario"
+      - name: "AccountTransferWorkflowHumanInLoop"
+        description: "Requires human approval before proceeding"
+        approvalTimeout: "30s"
+      - name: "AccountTransferWorkflowAdvancedVisibility"
+        description: "Includes advanced visibility features"
+    activities:
+      - name: "validate"
+        timeout: "5s"
+      - name: "withdraw"
+        timeout: "5s"
+      - name: "deposit"
+        timeout: "5s"
+      - name: "sendNotification"
+        timeout: "5s"
+      - name: "undoWithdraw"
+        timeout: "5s"
