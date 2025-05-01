@@ -4,14 +4,17 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/mocksi/temporal-mcp/internal/sanitize_history_event"
-	"google.golang.org/protobuf/encoding/protojson"
 	"log"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+
+	"github.com/google/uuid"
+	"github.com/mocksi/temporal-mcp/internal/sanitize_history_event"
+	"google.golang.org/protobuf/encoding/protojson"
+
+	"text/template"
 
 	mcp "github.com/metoro-io/mcp-golang"
 	"github.com/metoro-io/mcp-golang/transport/stdio"
@@ -19,7 +22,6 @@ import (
 	"github.com/mocksi/temporal-mcp/internal/temporal"
 	temporal_enums "go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
-	"text/template"
 )
 
 func main() {
@@ -69,6 +71,12 @@ func main() {
 		log.Fatalf("Failed to register workflow tools: %v", err)
 	}
 
+	// Register get workflow history tool
+	err = registerGetWorkflowHistoryTool(server, temporalClient)
+	if err != nil {
+		log.Fatalf("Failed to register get workflow history tool: %v", err)
+	}
+
 	// Register system prompt
 	err = registerSystemPrompt(server, cfg)
 	if err != nil {
@@ -111,13 +119,79 @@ func registerWorkflowTool(server *mcp.Server, name string, workflow config.Workf
 		ForceRerun bool              `json:"force_rerun"`
 	}
 
+	// Build detailed parameter descriptions for tool registration
+	paramDescriptions := "\n\n**Parameters:**\n"
+	for _, field := range workflow.Input.Fields {
+		for fieldName, description := range field {
+			isRequired := !strings.Contains(description, "Optional")
+			if isRequired {
+				paramDescriptions += fmt.Sprintf("- `%s` (required): %s\n", fieldName, description)
+			} else {
+				paramDescriptions += fmt.Sprintf("- `%s` (optional): %s\n", fieldName, description)
+			}
+		}
+	}
+
+	// Add example usage
+	paramDescriptions += "\n**Example Usage:**\n```json\n{\n  \"params\": {\n"
+	paramExamples := []string{}
+	for _, field := range workflow.Input.Fields {
+		for fieldName, _ := range field {
+			if strings.Contains(fieldName, "json") {
+				paramExamples = append(paramExamples, fmt.Sprintf("    \"%s\": {\"example\": \"value\"}", fieldName))
+			} else if strings.Contains(fieldName, "id") {
+				paramExamples = append(paramExamples, fmt.Sprintf("    \"%s\": \"example-id-123\"", fieldName))
+			} else {
+				paramExamples = append(paramExamples, fmt.Sprintf("    \"%s\": \"example value\"", fieldName))
+			}
+		}
+	}
+	paramDescriptions += strings.Join(paramExamples, ",\n")
+	paramDescriptions += "\n  },\n  \"force_rerun\": false\n}\n```"
+
+	// Create complete extended purpose description
+	extendedPurpose := workflow.Purpose + paramDescriptions
+
 	// Register the tool with MCP server
-	return server.RegisterTool(name, workflow.Purpose, func(args WorkflowParams) (*mcp.ToolResponse, error) {
+	return server.RegisterTool(name, extendedPurpose, func(args WorkflowParams) (*mcp.ToolResponse, error) {
 		// Check if Temporal client is available
 		if tempClient == nil {
 			log.Printf("Error: Temporal client is not available for workflow: %s", name)
 			return mcp.NewToolResponse(mcp.NewTextContent(
 				"Error: Temporal service is currently unavailable. Please try again later.",
+			)), nil
+		}
+
+		// Validate required parameters before execution
+		if args.Params == nil {
+			return mcp.NewToolResponse(mcp.NewTextContent(
+				fmt.Sprintf("Error: No parameters provided for workflow %s. Please provide required parameters.", name),
+			)), nil
+		}
+
+		// Build list of required parameters
+		var requiredParams []string
+		for _, field := range workflow.Input.Fields {
+			for fieldName, description := range field {
+				if !strings.Contains(description, "Optional") {
+					requiredParams = append(requiredParams, fieldName)
+				}
+			}
+		}
+
+		// Check for missing required parameters
+		var missingParams []string
+		for _, param := range requiredParams {
+			if _, exists := args.Params[param]; !exists || args.Params[param] == "" {
+				missingParams = append(missingParams, param)
+			}
+		}
+
+		// Return error if any required parameters are missing
+		if len(missingParams) > 0 {
+			missingParamsList := strings.Join(missingParams, ", ")
+			return mcp.NewToolResponse(mcp.NewTextContent(
+				fmt.Sprintf("Error: Missing required parameters for workflow %s: %s", name, missingParamsList),
 			)), nil
 		}
 
@@ -274,16 +348,72 @@ func registerSystemPrompt(server *mcp.Server, cfg *config.Config) error {
 		// Build list of available tools from workflows
 		workflowList := ""
 		for name, workflow := range cfg.Workflows {
-			workflowList += fmt.Sprintf("- %s: %s\n", name, workflow.Purpose)
+			// Use the complete purpose which already includes parameter details from config.yml
+			detailedPurpose := workflow.Purpose
 
-			// Add parameter information
-			workflowList += "  Parameters:\n"
+			workflowList += fmt.Sprintf("## %s\n", name)
+			workflowList += fmt.Sprintf("**Purpose:** %s\n\n", detailedPurpose)
+			workflowList += fmt.Sprintf("**Input Type:** %s\n\n", workflow.Input.Type)
+
+			// Add parameters section with detailed formatting based on the Input.Fields
+			workflowList += "**Parameters:**\n"
 			for _, field := range workflow.Input.Fields {
 				for fieldName, description := range field {
-					workflowList += fmt.Sprintf("    - %s: %s\n", fieldName, description)
+					isRequired := !strings.Contains(description, "Optional")
+					if isRequired {
+						workflowList += fmt.Sprintf("- `%s` (required): %s\n", fieldName, description)
+					} else {
+						workflowList += fmt.Sprintf("- `%s` (optional): %s\n", fieldName, description)
+					}
 				}
 			}
-			workflowList += "\n"
+
+			// Add example of how to call this workflow
+			workflowList += "\n**Example Usage:**\n"
+			workflowList += "```json\n"
+			workflowList += "{\n  \"params\": {\n"
+
+			// Generate example parameters
+			paramExamples := []string{}
+			for _, field := range workflow.Input.Fields {
+				for fieldName, _ := range field {
+					if strings.Contains(fieldName, "json") {
+						paramExamples = append(paramExamples, fmt.Sprintf("    \"%s\": {\"example\": \"value\"}", fieldName))
+					} else if strings.Contains(fieldName, "id") {
+						paramExamples = append(paramExamples, fmt.Sprintf("    \"%s\": \"example-id-123\"", fieldName))
+					} else {
+						paramExamples = append(paramExamples, fmt.Sprintf("    \"%s\": \"example value\"", fieldName))
+					}
+				}
+			}
+			workflowList += strings.Join(paramExamples, ",\n")
+			workflowList += "\n  },\n  \"force_rerun\": false\n}\n```\n"
+
+			// Add output information
+			workflowList += fmt.Sprintf("\n**Output Type:** %s\n", workflow.Output.Type)
+			if workflow.Output.Description != "" {
+				workflowList += fmt.Sprintf("**Output Description:** %s\n", workflow.Output.Description)
+			}
+
+			// Extract required parameters for validation guidance
+			var requiredParams []string
+			for _, field := range workflow.Input.Fields {
+				for fieldName, description := range field {
+					if !strings.Contains(description, "Optional") {
+						requiredParams = append(requiredParams, fieldName)
+					}
+				}
+			}
+
+			// Add validation guidelines
+			if len(requiredParams) > 0 {
+				workflowList += "\n**Required Validation:**\n"
+				workflowList += "- Validate all required parameters are provided before execution\n"
+				paramsList := strings.Join(requiredParams, ", ")
+				workflowList += fmt.Sprintf("- Required parameters: %s\n", paramsList)
+			}
+
+			workflowList += "\n---\n\n"
 		}
 
 		systemPrompt := fmt.Sprintf(`You are now connected to a Temporal MCP (Model Control Protocol) server that provides access to various Temporal workflows.
@@ -291,13 +421,39 @@ func registerSystemPrompt(server *mcp.Server, cfg *config.Config) error {
 This MCP exposes the following workflow tools:
 
 %s
+## Parameter Validation Guidelines
+
+Before executing any workflow, ensure you:
+
+1. Validate all required parameters are present and properly formatted
+2. Check that string parameters have appropriate length and format
+3. Verify numeric parameters are within expected ranges
+4. Ensure any IDs follow the proper format guidelines
+5. Ask the user for any missing required parameters before execution
+
+## Tool Usage Instructions
+
 Use these tools to help users interact with Temporal workflows. Each workflow requires a 'params' object containing the necessary parameters listed above.
 
-Set force_rerun to true to force the workflow to run again. When force_rerun is false, temporal will deduplicate workflows
-based on their arguments. Only set force_rerun to true if the user explicitly tells you to.
+When constructing your calls:
+- Include all required parameters
+- Set force_rerun to true only when explicitly requested by the user
+- When force_rerun is false, Temporal will deduplicate workflows based on their arguments
 
-Example usage: 
-Call GreetingWorkflow with {"params": {"name": "John"}}`, workflowList)
+## General Example Structure
+
+To call any workflow:
+`+"```"+`
+{
+  "params": {
+    "param1": "value1",
+    "param2": "value2"
+  },
+  "force_rerun": false
+}
+`+"```"+`
+
+Refer to each workflow's specific example above for exact parameter requirements.`, workflowList)
 
 		return mcp.NewPromptResponse("system_prompt", mcp.NewPromptMessage(mcp.NewTextContent(systemPrompt), mcp.Role("system"))), nil
 	})
