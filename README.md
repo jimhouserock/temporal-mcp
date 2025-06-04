@@ -1,4 +1,7 @@
 # ⏰🧠 Temporal-MCP Server
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Mocksi/temporal-mcp)
+[![CI Status](https://github.com/Mocksi/temporal-mcp/actions/workflows/go-test.yml/badge.svg)](https://github.com/Mocksi/temporal-mcp/actions/workflows/go-test.yml)
+
 
 Temporal MCP is an MCP server that bridges AI assistants (like Claude) and Temporal workflows. It turns complex backend orchestration into simple, chat-driven commands. Imagine triggering stateful processes without writing a line of glue code. Temporal-MCP makes that possible.
 
