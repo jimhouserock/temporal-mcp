@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
-	"hash/fnv"
 	"log"
 	"os"
 	"os/signal"
