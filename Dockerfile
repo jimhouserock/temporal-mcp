@@ -18,8 +18,8 @@ RUN go mod tidy
 # Copy source code
 COPY . .
 
-# Build the application
-RUN make build
+# Build the application directly with go build instead of make
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o ./bin/temporal-mcp ./cmd/temporal-mcp
 
 # Use minimal alpine image for runtime
 FROM alpine:latest
