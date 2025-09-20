@@ -72,23 +72,24 @@ func main() {
 	// Create a new MCP server with HTTP transport
 	server := mcp.NewServer(transport)
 
-	// Register all workflow tools
+	// Register all workflow tools (non-fatal if Temporal unavailable)
 	log.Println("Registering workflow tools...")
 	err = registerWorkflowTools(server, cfg, temporalClient)
 	if err != nil {
-		log.Fatalf("Failed to register workflow tools: %v", err)
+		log.Printf("WARNING: Failed to register workflow tools: %v", err)
+		log.Printf("Server will start without workflow tools - configure Temporal connection to enable full functionality")
 	}
 
-	// Register get workflow history tool
+	// Register get workflow history tool (non-fatal if Temporal unavailable)
 	err = registerGetWorkflowHistoryTool(server, temporalClient)
 	if err != nil {
-		log.Fatalf("Failed to register get workflow history tool: %v", err)
+		log.Printf("WARNING: Failed to register get workflow history tool: %v", err)
 	}
 
-	// Register system prompt
+	// Register system prompt (this should always work)
 	err = registerSystemPrompt(server, cfg)
 	if err != nil {
-		log.Fatalf("Failed to register system prompt: %v", err)
+		log.Printf("WARNING: Failed to register system prompt: %v", err)
 	}
 
 	// Start the MCP server (this will start the HTTP server internally)
