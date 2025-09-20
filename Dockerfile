@@ -19,11 +19,17 @@ RUN go get github.com/metoro-io/mcp-golang/transport/http@v0.11.0
 # Ensure go.sum is fully synchronized after all go get commands
 RUN go mod tidy
 
-# Copy source code
-COPY . .
+# Copy source code (excluding go.mod and go.sum to preserve updated dependencies)
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
+COPY config.sample.yml ./
+COPY Makefile ./
 
-# Build the application directly with go build
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o ./bin/temporal-mcp ./cmd/temporal-mcp
+# Ensure go.sum is still synchronized after copying source
+RUN go mod tidy
+
+# Build the application with optimized flags
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o ./bin/temporal-mcp ./cmd/temporal-mcp
 
 # Use minimal alpine image for runtime
 FROM alpine:latest
