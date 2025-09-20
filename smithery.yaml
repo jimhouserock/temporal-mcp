@@ -1,0 +1,19 @@
+runtime: "container"
+build:
+  dockerfile: "Dockerfile"
+  dockerBuildPath: "."
+startCommand:
+  type: "http"
+  # Optional: Add configuration schema if your MCP server needs user settings
+  # configSchema:
+  #   type: "object"
+  #   properties:
+  #     temporalHost:
+  #       type: "string"
+  #       description: "Temporal server host"
+  #       default: "localhost:7233"
+  #     namespace:
+  #       type: "string"
+  #       description: "Temporal namespace"
+  #       default: "default"
+  #   required: []

@@ -2,8 +2,20 @@
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Mocksi/temporal-mcp)
 [![CI Status](https://github.com/Mocksi/temporal-mcp/actions/workflows/go-test.yml/badge.svg)](https://github.com/Mocksi/temporal-mcp/actions/workflows/go-test.yml)
 
+**Author:** Jimmy Lin
 
 Temporal MCP is an MCP server that bridges AI assistants (like Claude) and Temporal workflows. It turns complex backend orchestration into simple, chat-driven commands. Imagine triggering stateful processes without writing a line of glue code. Temporal-MCP makes that possible.
+
+## 🚀 **New in This Fork: HTTP Transport Support**
+
+This fork adds **HTTP transport support** for web-based deployment platforms like [Smithery](https://smithery.ai/), while maintaining full compatibility with the original stdio transport for Claude Desktop.
+
+### **Key Differences:**
+- ✅ **Dual Transport Support** — Works with both Claude Desktop (stdio) and web platforms (HTTP)
+- ✅ **Smithery Ready** — Deploy directly to Smithery with included `smithery.yaml` and `Dockerfile`
+- ✅ **CORS Enabled** — Built-in CORS support for web browser compatibility
+- ✅ **Container Optimized** — Docker containerization for cloud deployment
+- ✅ **Port Flexible** — Configurable via `PORT` environment variable (defaults to 8081)
 
 ## Why Temporal MCP
 
@@ -26,23 +38,45 @@ Temporal MCP is an MCP server that bridges AI assistants (like Claude) and Tempo
 - **Go 1.21+** — For building and running the MCP server
 - **Temporal Server** — Running locally or remotely (see [Temporal docs](https://docs.temporal.io/docs/server/quick-install/))
 
+### Deployment Options
+
+**🖥️ Claude Desktop (Original)** — Use stdio transport for local Claude Desktop integration
+**🌐 Web Deployment (New)** — Use HTTP transport for Smithery, Docker, or other web platforms
+
 ### Quick Install
 
-1. Run your Temporal server and workers
+#### Option 1: Web Deployment (Smithery/Docker) 🌐
+
+1. **Clone and configure**
+```bash
+git clone https://github.com/jimhouserock/temporal-mcp.git
+cd temporal-mcp
+```
+
+2. **Deploy to Smithery**
+   - Push to GitHub
+   - Connect to [Smithery](https://smithery.ai/)
+   - Deploy using the included `smithery.yaml`
+
+3. **Or run with Docker**
+```bash
+docker build -t temporal-mcp .
+docker run -p 8081:8081 -e PORT=8081 temporal-mcp
+```
+
+#### Option 2: Claude Desktop (Original) 🖥️
+
+1. **Run your Temporal server and workers**
 In this example, we'll use the [Temporal Money Transfer Demo](https://github.com/temporal-sa/money-transfer-demo/tree/main).
-
-
-#### MCP Setup
-Get Claude (or similar MCP-enabled AI assistant) talking to your workflows in 5 easy steps:
 
 2. **Build the server**
 ```bash
-git clone https://github.com/Mocksi/temporal-mcp.git
+git clone https://github.com/jimhouserock/temporal-mcp.git
 cd temporal-mcp
 make build
 ```
 
-2. **Define your workflows** in `config.yml`
+3. **Define your workflows** in `config.yml`
 The sample configuration (`config.sample.yml`) is designed to work with the [Temporal Money Transfer Demo](https://github.com/temporal-sa/money-transfer-demo/tree/main):
 
 ```yaml
@@ -75,18 +109,18 @@ workflows:
     taskQueue: "account-transfer-queue"
 ```
 
-3. **Generate Claude's configuration**
+4. **Generate Claude's configuration**
 ```bash
 cd examples
 ./generate_claude_config.sh
 ```
 
-4. **Install the configuration**
+5. **Install the configuration**
 ```bash
 cp examples/claude_config.json ~/Library/Application\ Support/Claude/claude_desktop_config.json
 ```
 
-5. **Start Claude** with this configuration
+6. **Start Claude** with this configuration
 
 ### Conversing with Your Workflows
 

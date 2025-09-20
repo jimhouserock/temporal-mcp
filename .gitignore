@@ -32,6 +32,16 @@ go.work
 ehthumbs.db
 Thumbs.db
 
+# Windows specific
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
 # Build output
 bin/
 dist/

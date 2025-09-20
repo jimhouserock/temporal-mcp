@@ -2,22 +2,26 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"hash/fnv"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
+	"text/template"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/mocksi/temporal-mcp/internal/sanitize_history_event"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"text/template"
-
 	mcp "github.com/metoro-io/mcp-golang"
-	"github.com/metoro-io/mcp-golang/transport/stdio"
+	mcphttp "github.com/metoro-io/mcp-golang/transport/http"
 	"github.com/mocksi/temporal-mcp/internal/config"
 	"github.com/mocksi/temporal-mcp/internal/temporal"
 	temporal_enums "go.temporal.io/api/enums/v1"
@@ -27,12 +31,12 @@ import (
 func main() {
 	// Parse command line arguments
 	configFile := flag.String("config", "config.yml", "Path to configuration file")
+	port := flag.String("port", "", "Port to listen on (overrides PORT env var)")
 	flag.Parse()
 
-	// CRITICAL: Configure all loggers to write to stderr instead of stdout
-	// This is essential as any output to stdout will corrupt the JSON-RPC stream
+	// Configure logger to write to stderr
 	log.SetOutput(os.Stderr)
-	log.Println("Starting Temporal MCP server...")
+	log.Println("Starting Temporal MCP HTTP server...")
 
 	// Setup signal handling for graceful shutdown
 	sigCh := make(chan os.Signal, 1)
@@ -58,11 +62,20 @@ func main() {
 		log.Printf("Connected to Temporal service at %s", cfg.Temporal.HostPort)
 	}
 
-	// Create a new MCP server with stdio transport for AI model communication
-	server := mcp.NewServer(stdio.NewStdioServerTransport())
+	// Determine port to listen on
+	listenPort := "8081" // Default port for Smithery
+	if *port != "" {
+		listenPort = *port
+	} else if envPort := os.Getenv("PORT"); envPort != "" {
+		listenPort = envPort
+	}
 
-	// Create tool registry - used in future enhancements
-	// registry := tool.NewRegistry(cfg, temporalClient, cacheClient)
+	// Create HTTP transport
+	transport := mcphttp.NewHTTPTransport("/mcp")
+	transport.WithAddr(":" + listenPort)
+
+	// Create a new MCP server with HTTP transport
+	server := mcp.NewServer(transport)
 
 	// Register all workflow tools
 	log.Println("Registering workflow tools...")
@@ -83,18 +96,21 @@ func main() {
 		log.Fatalf("Failed to register system prompt: %v", err)
 	}
 
-	// Start the MCP server in a goroutine
+	// Start the MCP server (this will start the HTTP server internally)
 	go func() {
-		log.Printf("Temporal MCP server is running. Press Ctrl+C to stop.")
+		log.Printf("Temporal MCP HTTP server listening on port %s", listenPort)
+		log.Printf("MCP endpoint available at: http://localhost:%s/mcp", listenPort)
+
 		if err := server.Serve(); err != nil {
-			log.Fatalf("Server error: %v", err)
+			log.Printf("MCP server error: %v", err)
 		}
 	}()
 
 	// Wait for termination signal
 	sig := <-sigCh
-	log.Printf("Received signal %v, shutting down MCP server...", sig)
-	log.Printf("Temporal MCP server has been stopped.")
+	log.Printf("Received signal %v, shutting down server...", sig)
+
+	log.Printf("Temporal MCP HTTP server has been stopped.")
 }
 
 // registerWorkflowTools registers all workflow definitions as MCP tools
@@ -457,4 +473,24 @@ Refer to each workflow's specific example above for exact parameter requirements
 
 		return mcp.NewPromptResponse("system_prompt", mcp.NewPromptMessage(mcp.NewTextContent(systemPrompt), mcp.Role("system"))), nil
 	})
+}
+
+// hashWorkflowArgs produces a short (suitable for inclusion in workflow id) hash of the given arguments. Args must be
+// json.Marshal-able.
+func hashWorkflowArgs(allParams map[string]string, paramsToHash ...any) (string, error) {
+	if len(paramsToHash) == 0 {
+		log.Printf("Warning: No hash arguments provided - will hash all arguments. Please replace {{ hash }} with {{ hash . }} in the workflowIDRecipe")
+		paramsToHash = []any{allParams}
+	}
+
+	hasher := fnv.New32()
+	for _, arg := range paramsToHash {
+		// important: json.Marshal sorts map keys
+		bytes, err := json.Marshal(arg)
+		if err != nil {
+			return "", err
+		}
+		_, _ = hasher.Write(bytes)
+	}
+	return fmt.Sprintf("%d", hasher.Sum32()), nil
 }
