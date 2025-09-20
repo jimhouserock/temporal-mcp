@@ -10,8 +10,10 @@ RUN apk add --no-cache git make
 # Copy go mod files
 COPY go.mod go.sum ./
 
-# Download dependencies
+# Download dependencies and update go.sum for HTTP transport
 RUN go mod download
+RUN go get github.com/metoro-io/mcp-golang/transport/http@v0.11.0
+RUN go mod tidy
 
 # Copy source code
 COPY . .
