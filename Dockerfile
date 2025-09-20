@@ -7,18 +7,16 @@ WORKDIR /app
 # Install build dependencies
 RUN apk add --no-cache git make
 
-# Copy go mod files
-COPY go.mod go.sum ./
-
-# Download dependencies and update go.sum for HTTP transport
-RUN go mod download
-RUN go get github.com/metoro-io/mcp-golang/transport/http@v0.11.0
-RUN go mod tidy
-
-# Copy source code
+# Copy all source code first
 COPY . .
 
-# Build the application directly with go build instead of make
+# Download dependencies and add missing HTTP transport dependencies
+RUN go mod download
+RUN go get github.com/metoro-io/mcp-golang/transport/http@v0.11.0
+RUN go get github.com/gin-gonic/gin@latest
+RUN go mod tidy
+
+# Build the application directly with go build
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o ./bin/temporal-mcp ./cmd/temporal-mcp
 
 # Use minimal alpine image for runtime
