@@ -70,7 +70,7 @@ func main() {
 		listenPort = envPort
 	}
 
-	// Create HTTP transport
+	// Create HTTP transport for Smithery deployment
 	transport := mcphttp.NewHTTPTransport("/mcp")
 	transport.WithAddr(":" + listenPort)
 
