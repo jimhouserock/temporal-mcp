@@ -10,12 +10,13 @@ RUN apk add --no-cache git make
 # Copy go mod files first for better caching
 COPY go.mod go.sum ./
 
-# Download dependencies
+# Download initial dependencies
 RUN go mod download
 
-# Add missing HTTP transport dependencies
+# Get the specific HTTP transport dependency as suggested by the error
 RUN go get github.com/metoro-io/mcp-golang/transport/http@v0.11.0
-RUN go get github.com/gin-gonic/gin@latest
+
+# Ensure go.sum is fully synchronized after all go get commands
 RUN go mod tidy
 
 # Copy source code
